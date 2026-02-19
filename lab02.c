@@ -15,31 +15,32 @@
 
 //Thread data structure
 typedef struct {
-    double *matrix;     // Pointer to the full matrix
+    double **matrix;     // Pointer to the full matrix
+    int id;             // Thread Name
     int n;              // Matrix dimension (n x n)
     int start_col;      // Starting column for this thread
     int num_cols;       // Number of columns to process (n/t)
 } args;
 
 //Function Prototypes
-void mmt(double *mat, int n, int start_col, int num_cols);
+void mmt(double **mat, int n, int start_col, int num_cols);
 void *thread_mmt(void *arg);
 
 //Helper Functions
-double min (double *mat, int n, int col);
-double max (double *mat, int n, int col);
+double min (double **mat, int n, int col);
+double max (double **mat, int n, int col);
 double generate_random(int max);
-void print_matrix(double *matrix, int n);
-double *generate_matrix(int row, int col);
+void print_matrix(double **matrix, int row, int start_col, int cols_to_print);
+double **generate_matrix(int row, int col);
 int64_t timestamp_now (void);
 double timestamp_to_seconds (int64_t timestamp);
-void transform_matrix(double *mat, int n);
+void transform_matrix(double **mat, int n);
 
 //Main Function
 int main(int argc, char **argv){
     //Variables
     int n, t;
-    double *matrix;
+    double **matrix;
 
     //Check if a file is inputed from the exec call
     if (argc < 2){
@@ -58,7 +59,7 @@ int main(int argc, char **argv){
         //Loop for generating Random values for the nxn matrix
         for (int i = 0; i < n; i++){
             for(int j = 0; j < n; j++){
-                matrix[(size_t)i * n + j] = generate_random(100);
+                matrix[i][j] = generate_random(100);
             }
         }
     }else{
@@ -73,7 +74,7 @@ int main(int argc, char **argv){
 
         for(int i = 0; i < n; i++){
             for(int j = 0; j < n; j++){
-                fscanf(fptr, "%lf", &matrix[(size_t)i * n + j]);
+                fscanf(fptr, "%lf", &matrix[i][j]);
             }
         }
         
@@ -104,6 +105,7 @@ int main(int argc, char **argv){
         
         arguments[i].matrix = matrix;
         arguments[i].n = n;
+        arguments[i].id = i;
         arguments[i].start_col = current_col;
         arguments[i].num_cols = thread_cols;  // n/t columns
         
@@ -120,7 +122,6 @@ int main(int argc, char **argv){
     int64_t end = timestamp_now();
     printf("Elapsed Time:\n%lf\n", timestamp_to_seconds(end - start));
 
-    print_matrix(matrix, n);
     //Cleanup
     free(threads);
     free(arguments);
@@ -151,9 +152,11 @@ void transpose_matrix(double *matrix, int n){
 void *thread_mmt(void *arg){
     args *data = (args *)arg;
     
-    // Call mmt on this thread's column range: mmt for columns [start_col, start_col + num_cols)
+    // Call mmt on this thread's column range mmt for columns [start_col, start_col + num_cols)
+    // printf("Thread %d\n", data->id);
     mmt(data->matrix, data->n, data->start_col, data->num_cols);
-    
+
+    // print_matrix(data->matrix, data->n, data->start_col, data->num_cols);
     return NULL;
 }
 
@@ -163,64 +166,57 @@ double generate_random(int max){
 }
 
 //Function for printing a matrix
-void print_matrix(double *matrix, int n){
-    for (int i = 0; i < n; i++){
-        for (int j = 0; j < n; j++){
-            printf(" %0.2g\t",  matrix[(size_t)i * n + j]);
+void print_matrix(double **matrix, int row, int start_col, int cols_to_print){
+    for (int i = 0; i < row; i++){
+        for (int j = start_col; j < start_col + cols_to_print; j++){
+            printf(" %0.2g\t",  matrix[i][j]);
         }
         printf("\n");
     }
 }
 
-//Function for getting the max from a column
-double max(double *mat, int n, int col){
-    double max = mat[col];
-    for (int i = 1; i < n; i++){
-        double val = mat[(size_t)i * n + col];
-        max = (val >= max) ? val : max;
+//Function for getting the max from a matrix (to be improved)
+double max(double **mat, int size, int col){
+    double max = mat[0][col];
+    for (int i = 1; i < size; i++){
+        max = (mat[i][col] >= max) ? mat[i][col] : max;
     }
 
     return max;
 }
 
-//Function for generating a matrix given dimensions
-double *generate_matrix(int row, int col){
-    int total_size = row * col * sizeof(double);
-    double *temp = (double*)malloc(total_size);
-    
-    if (temp == NULL) {
-        printf("Error: Failed to allocate memory for matrix");
-        return NULL;
+//Function for getting the min from the matrix (to be improved)
+double min(double **mat, int size, int col){
+    double min = mat[0][col];
+    for (int i = 1; i < size; i++){
+        min = (mat[i][col] < min) ? mat[i][col] : min;
     }
-    
-    return temp;
-}
 
-//Function for getting the min from a column
-double min(double *mat, int n, int col){
-    double min = mat[col];
-    for (int i = 1; i < n; i++){
-        double val = mat[i * n + col];
-        min = (val < min) ? val : min;
-    }
     return min;
 }
 
-//Function for computing the MMT on specific columns of the full matrix
-// mat: pointer to full matrix, n: matrix dimension, start_col: first column, num_cols: number of columns
-void mmt(double *mat, int n, int start_col, int num_cols){
+//Function for generating a matrix given dimensions
+double ** generate_matrix(int row, int col){
+    double **temp = (double**)malloc(sizeof(double*)*row);
+
+    for(int i = 0; i < row; i++){
+        temp[i] = (double *)(malloc(sizeof(double) * col));
+    }
+    return temp;
+}
+
+
+//Function for computing the MMT (new mat)
+void mmt(double ** matrix, int n, int start_col, int num_of_iter){
 
     double colMax, colMin; 
 
-    // Process each column in the range [start_col, start_col + num_cols)
-    for (int i = start_col; i < start_col + num_cols; i++){
-        colMax = max(mat, n, i);
-        colMin = min(mat, n, i);
+    for (int i=start_col, k=0; k < num_of_iter; i++, k++){
+        colMax = max(matrix, n, i);
+        colMin = min(matrix, n, i);
 
-        // Apply min-max normalization to this column
         for (int j = 0; j < n; j++){
-            int idx = j * n + i;
-            mat[idx] = (mat[idx] - colMin) / (colMax - colMin);
+            matrix[j][i] = (matrix[j][i] - colMin) / (colMax - colMin);
         }
     }
 

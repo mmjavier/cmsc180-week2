@@ -3,8 +3,8 @@
 # --- CONFIGURATION ---
 SOURCE_FILE="lab02.c"       # Your C file name
 OUTPUT_EXE="lab02"         # The executable name
-CSV_FILE="results-1D.csv"     # The output CSV file name
-SIZE_INPUTS=(25000) # Add the sizes you want to test here
+CSV_FILE="results-40000.csv"    # The output CSV file name
+SIZE_INPUTS=(25000 30000 40000 50000 100000) # Add the sizes you want to test here
 T_INPUTS=(1 2 4 8 16 32 64)
 # ---------------------
 
