@@ -29,6 +29,7 @@ void *thread_mmt(void *arg);
 //Helper Functions
 double min (double **mat, int n, int col);
 double max (double **mat, int n, int col);
+
 double generate_random(int max);
 void print_matrix(double **matrix, int row, int start_col, int cols_to_print);
 double **generate_matrix(int row, int col);
@@ -121,7 +122,7 @@ int main(int argc, char **argv){
     
     int64_t end = timestamp_now();
     printf("Elapsed Time:\n%lf\n", timestamp_to_seconds(end - start));
-
+    
     //Cleanup
     free(threads);
     free(arguments);
@@ -217,6 +218,22 @@ void mmt(double ** matrix, int n, int start_col, int num_of_iter){
 
         for (int j = 0; j < n; j++){
             matrix[j][i] = (matrix[j][i] - colMin) / (colMax - colMin);
+        }
+    }
+
+}
+
+//Function for computing the MMT (new mat)
+void mmtRow(double ** matrix, int n, int start_col, int num_of_iter){
+
+    double colMax, colMin; 
+
+    for (int i=start_col, k=0; k < num_of_iter; i++, k++){
+        colMax = max(matrix, n, i);
+        colMin = min(matrix, n, i);
+
+        for (int j = 0; j < n; j++){
+            matrix[i][j] = (matrix[i][j] - colMin) / (colMax - colMin);
         }
     }
 
